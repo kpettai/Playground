@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wallet provisioning prototype · Riverty Consumer Card</title>
+<style>
+  :root {
+    --bg: #e9eef1; --ink: #14232b; --muted: #5a6b74; --line: #d3dde2;
+    --surface: #ffffff; --accent: #0b5c6b; --accent-ink: #ffffff;
+    --ok: #14703e; --ok-bg: #d9f0e1; --warn: #b3261e; --warn-bg: #fbe0de;
+    --amber-bg: #fdecc8; --amber: #6b4a05; --focus: #e07b00;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); color-scheme: light;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; line-height: 1.45; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .page { max-width: 980px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  h1.page-title { font-size: 1.15rem; margin: 0 0 0.2rem; }
+  .page-sub { margin: 0 0 1.25rem; color: var(--muted); font-size: 0.9rem; }
+  .layout { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; justify-content: center; }
+
+  /* Phone */
+  #phone { position: relative; width: 360px; max-width: 100%; height: 720px; background: var(--surface);
+    border: 10px solid #1d2b33; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column; }
+  .overlay { font-size: 0.74rem; padding: 0.4rem 0.75rem; background: #1d2b33; color: #fff;
+    display: flex; justify-content: space-between; gap: 0.5rem; flex: none; }
+  .overlay.breach { background: var(--warn); }
+  .overlay b { font-variant-numeric: tabular-nums; }
+  .screen { flex: 1; padding: 1.25rem 1.25rem 1rem; display: flex; flex-direction: column; gap: 0.9rem; overflow: auto; }
+  .steps { display: flex; gap: 6px; }
+  .steps i { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+  .steps i.done { background: #86b5be; }
+  .steps i.on { background: var(--accent); }
+  .screen h1 { font-size: 1.45rem; line-height: 1.2; margin: 0.4rem 0 0; }
+  .lead { margin: 0; color: var(--muted); }
+  .spacer { flex: 1; }
+
+  .card-art { border-radius: 14px; padding: 1rem; color: #fff; min-height: 150px;
+    background: linear-gradient(135deg, #0b5c6b, #14232b); display: flex; flex-direction: column; justify-content: space-between; }
+  .card-art .brand { font-weight: 700; letter-spacing: 0.02em; }
+  .card-art .num { font-size: 1.1rem; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+  .card-art .row { display: flex; justify-content: space-between; font-size: 0.78rem; opacity: 0.9; }
+
+  .btn { font: inherit; font-weight: 600; min-height: 48px; width: 100%; border: 0; border-radius: 12px;
+    background: var(--accent); color: var(--accent-ink); cursor: pointer; padding: 0.7rem 1rem; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+  .link { font: inherit; background: none; border: 0; color: var(--muted); text-decoration: underline;
+    min-height: 44px; cursor: pointer; }
+
+  .chip { display: inline-block; font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.65rem; border-radius: 999px;
+    background: var(--ok-bg); color: var(--ok); }
+  .status-row { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0.9rem;
+    border: 1px solid var(--line); border-radius: 10px; font-size: 0.95rem; }
+  .status-row.no { background: var(--amber-bg); color: var(--amber); border-color: transparent; }
+  .status-row.yes { background: var(--ok-bg); color: var(--ok); border-color: transparent; font-weight: 600; }
+  .big-icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--ok-bg); color: var(--ok); font-size: 2rem; font-weight: 700; }
+  .big-icon.neutral { background: #dbe7ea; color: var(--accent); }
+  .summary { border: 1px dashed #8a9aa3; border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.8rem; }
+  .summary b { font-variant-numeric: tabular-nums; }
+  .pass { color: var(--ok); font-weight: 700; }
+  .fail { color: var(--warn); font-weight: 700; }
+
+  /* Wallet sheet */
+  .scrim { position: absolute; inset: 0; background: rgba(10, 20, 26, 0.55); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 22px 22px 0 0;
+    padding: 1rem 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 0.8rem; box-shadow: 0 -8px 24px rgba(0,0,0,0.25); }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; }
+  .sheet-head h2 { margin: 0; font-size: 1.1rem; }
+  .x { font: inherit; font-size: 1.3rem; width: 44px; height: 44px; border: 0; background: none; cursor: pointer; color: var(--muted); }
+  .x:disabled { opacity: 0.3; cursor: default; }
+  .env { font-size: 0.75rem; color: var(--muted); margin-top: -0.5rem; }
+  .center { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.6rem 0; text-align: center; }
+  .spinner { width: 38px; height: 38px; border: 4px solid var(--line); border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .alert { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 0.7rem 0.8rem; font-size: 0.92rem; }
+
+  /* Test panel */
+  .panel { width: 360px; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; font-size: 0.88rem; }
+  .panel h2 { margin: 0; font-size: 1rem; }
+  .panel h3 { margin: 0 0 0.35rem; font-size: 0.85rem; }
+  .seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .seg button, .tbtn { font: inherit; font-size: 0.82rem; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 8px;
+    background: #fff; color: var(--ink); cursor: pointer; min-height: 38px; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tbtn:disabled { opacity: 0.45; cursor: default; }
+  .guard { padding: 0.45rem 0.65rem; border-radius: 8px; font-weight: 600; }
+  .guard.ok { background: var(--ok-bg); color: var(--ok); }
+  .guard.bad { background: var(--warn-bg); color: var(--warn); }
+  .log { list-style: none; margin: 0; padding: 0; max-height: 190px; overflow: auto; border: 1px solid var(--line);
+    border-radius: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 0.76rem; }
+  .log li { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 0.5rem; }
+  .log li:last-child { border-bottom: 0; }
+  .log .empty { color: var(--muted); font-family: inherit; }
+  .hint { color: var(--muted); margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1 class="page-title">Riverty Consumer Card · Wallet provisioning prototype</h1>
+  <p class="page-sub">Simulated wallet, synthetic data, no network calls. Use the test controls to walk the happy and unhappy paths.</p>
+  <div id="root"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+(function () {
+  var h = React.createElement;
+  var useState = React.useState;
+  var useEffect = React.useEffect;
+
+  var LIMIT = 300000;          // 5:00 guardrail
+  var COMPACT_AT = 240;        // seconds: offer collapses at >= 4:00
+  var MAX_FAILS = 3;
+  var BANNED = [
+    "nothing has left your account", "pay later", "pay after you decide",
+    "no charge until", "delayed", "charged after", "money stays"
+  ];
+
+  function fmt(ms) {
+    var s = Math.floor(ms / 1000);
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+  function sec(ms) { return (ms / 1000).toFixed(1) + " s"; }
+  function now() { return new Date().toLocaleTimeString([], { hour12: false }); }
+
+  function CardArt() {
+    return h("div", { className: "card-art", "aria-label": "Riverty card preview" },
+      h("div", { className: "brand" }, "Riverty"),
+      h("div", { className: "num" }, "\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 4242"),
+      h("div", { className: "row" }, h("span", null, "Test cardholder"), h("span", null, "Test environment"))
+    );
+  }
+
+  function App() {
+    var s1 = useState(1), screen = s1[0], setScreen = s1[1];
+    var s2 = useState("ready"), sheet = s2[0], setSheet = s2[1];
+    var s3 = useState(null), result = s3[0], setResult = s3[1];
+    var s4 = useState(0), fails = s4[0], setFails = s4[1];
+    var s5 = useState("success"), sim = s5[0], setSim = s5[1];
+    var s6 = useState(150), offset = s6[0], setOffset = s6[1];
+    var s7 = useState({ total: 150000, prov: 0, totalRun: true, provRun: false }), clock = s7[0], setClock = s7[1];
+    var s8 = useState([]), log = s8[0], setLog = s8[1];
+    var s9 = useState(false), ended = s9[0], setEnded = s9[1];
+    var s10 = useState(false), purchased = s10[0], setPurchased = s10[1];
+    var s11 = useState(0), guard = s11[0], setGuard = s11[1];
+
+    function addLog(name) { setLog(function (l) { return [{ t: now(), name: name }].concat(l); }); }
+
+    /* Two timers: total activation clock and wallet-step-only clock */
+    useEffect(function () {
+      var last = Date.now();
+      var id = setInterval(function () {
+        var n = Date.now(), dt = n - last; last = n;
+        setClock(function (c) {
+          return { total: c.totalRun ? c.total + dt : c.total, prov: c.provRun ? c.prov + dt : c.prov,
+                   totalRun: c.totalRun, provRun: c.provRun };
+        });
+      }, 100);
+      return function () { clearInterval(id); };
+    }, []);
+
+    /* Simulated wallet add: Adding -> Done / Failed, then Done -> Screen 3 */
+    useEffect(function () {
+      if (screen !== 2) return;
+      var id;
+      if (sheet === "adding") {
+        id = setTimeout(function () {
+          if (sim === "fail") { setSheet("failed"); setFails(function (f) { return f + 1; }); addLog("wallet_prov_failed"); }
+          else { setSheet("done"); addLog("wallet_prov_succeeded"); }
+        }, 1200);
+      } else if (sheet === "done") {
+        id = setTimeout(function () { finish("added"); }, 700);
+      }
+      return function () { clearTimeout(id); };
+    }, [screen, sheet, sim]);
+
+    /* Claim guard: scan everything rendered inside the phone for banned claims */
+    useEffect(function () {
+      var el = document.getElementById("phone");
+      var txt = (el ? el.innerText : "").toLowerCase();
+      var n = BANNED.filter(function (b) { return txt.indexOf(b) !== -1; }).length;
+      setGuard(n);
+    });
+
+    function finish(r) {
+      setResult(r);
+      setScreen(3);
+      setEnded(false);
+      setClock(function (c) { return { total: c.total, prov: c.prov, totalRun: false, provRun: false }; });
+    }
+    function startAdd() {
+      setScreen(2); setSheet("ready");
+      setClock(function (c) { return { total: c.total, prov: c.prov, totalRun: c.totalRun, provRun: true }; });
+      addLog("wallet_prov_started");
+    }
+    function confirmAdd() { if (sheet === "ready") setSheet("adding"); }
+    function tryAgain() { setSheet("ready"); addLog("wallet_prov_started"); }
+    function skip() { addLog("wallet_prov_skipped"); finish("skipped"); }
+    function closeSheet() { if (sheet === "ready" || sheet === "failed") skip(); }
+    function backgroundApp() { if (screen === 2 && sheet === "adding") setSheet("ready"); }
+    function simulatePurchase() { if (result === "added" && !purchased) { setPurchased(true); addLog("first_wallet_purchase"); } }
+
+    function restart(sec0) {
+      var o = sec0 == null ? offset : sec0;
+      setOffset(o);
+      setScreen(1); setSheet("ready"); setResult(null); setFails(0);
+      setClock({ total: o * 1000, prov: 0, totalRun: true, provRun: false });
+      setLog([]); setEnded(false); setPurchased(false);
+    }
+
+    var compact = offset >= COMPACT_AT;
+    var breach = clock.total > LIMIT;
+
+    /* ---------- Screens ---------- */
+    function Screen1(props) {
+      return h("div", { className: "screen", "aria-hidden": props.dim ? "true" : null },
+        h("div", { className: "steps", role: "img", "aria-label": "Step 4 of 4" },
+          [1, 2, 3, 4].map(function (i) { return h("i", { key: i, className: i === 4 ? "on" : "done" }); })),
+        h("h1", null, "Add your card to your phone wallet"),
+        h("p", { className: "lead" }, "So it\u2019s ready when you check out on your phone."),
+        compact ? null : h(CardArt),
+        h("div", { className: "spacer" }),
+        h("button", { className: "btn", onClick: props.dim ? undefined : startAdd, tabIndex: props.dim ? -1 : 0 }, "Add to wallet"),
+        h("button", { className: "link", onClick: props.dim ? undefined : skip, tabIndex: props.dim ? -1 : 0 }, "Not now")
+      );
+    }
+
+    function Sheet() {
+      var body;
+      if (sheet === "ready") {
+        body = h("button", { className: "btn", onClick: confirmAdd }, "Confirm and add");
+      } else if (sheet === "adding") {
+        body = h("div", { className: "center", role: "status" },
+          h("div", { className: "spinner", "aria-hidden": "true" }), h("div", null, "Adding your card\u2026"));
+      } else if (sheet === "done") {
+        body = h("div", { className: "center", role: "status" },
+          h("div", { className: "big-icon", "aria-hidden": "true" }, "\u2713"), h("div", null, "Added to wallet"));
+      } else {
+        body = h("div", { style: { display: "flex", flexDirection: "column", gap: "0.6rem" } },
+          h("div", { className: "alert", role: "alert" }, "Couldn\u2019t add the card to your wallet. Your card is still active."),
+          fails < MAX_FAILS ? h("button", { className: "btn", onClick: tryAgain }, "Try again") : null,
+          h("button", { className: fails < MAX_FAILS ? "btn secondary" : "btn", onClick: skip }, "Skip for now")
+        );
+      }
+      return h("div", null,
+        h("div", { className: "scrim", onClick: closeSheet }),
+        h("div", { className: "sheet", role: "dialog", "aria-label": "Add to wallet" },
+          h("div", { className: "sheet-head" },
+            h("h2", null, "Add to wallet"),
+            h("button", { className: "x", onClick: closeSheet, disabled: sheet === "adding" || sheet === "done", "aria-label": "Close" }, "\u00D7")),
+          h("div", { className: "env" }, "Test environment"),
+          h(CardArt),
+          body
+        )
+      );
+    }
+
+    function Screen3() {
+      var added = result === "added";
+      var within = clock.total <= LIMIT;
+      return h("div", { className: "screen" },
+        h("div", { className: "big-icon" + (added ? "" : " neutral"), "aria-hidden": "true" }, added ? "\u2713" : "\u2022"),
+        h("h1", null, added ? "Your card is ready for checkout" : "Your card is active"),
+        h("div", null, h("span", { className: "chip" }, "Active")),
+        h("div", { className: "status-row " + (added ? "yes" : "no") },
+          h("span", null, added ? "In your phone wallet" : "Not in your wallet yet")),
+        h("div", { className: "summary", "aria-label": "Test overlay" },
+          h("div", null, "Activation time: ", h("b", null, fmt(clock.total))),
+          h("div", null, "Wallet step: ", h("b", null, sec(clock.prov))),
+          h("div", null, "Guardrail 5:00: ", h("span", { className: within ? "pass" : "fail" }, within ? "PASS" : "FAIL"))),
+        h("div", { className: "spacer" }),
+        ended
+          ? h("p", { className: "lead", style: { textAlign: "center" } }, "End of prototype. Use Restart in the test controls to run another path.")
+          : h("div", { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
+              added ? null : h("button", { className: "btn", onClick: startAdd }, "Add to wallet"),
+              h("button", { className: added ? "btn" : "btn secondary", onClick: function () { setEnded(true); } }, "Done"))
+      );
+    }
+
+    var phoneBody =
+      screen === 1 ? h(Screen1, { dim: false }) :
+      screen === 2 ? h(React.Fragment, null, h(Screen1, { dim: true }), h(Sheet)) :
+      h(Screen3);
+
+    var overlay = h("div", { className: "overlay" + (breach ? " breach" : ""), "aria-label": "Test overlay" },
+      h("span", null, "Activation ", h("b", null, fmt(clock.total)), " / 5:00"),
+      h("span", null, breach ? "Guardrail breached" : "Wallet step " + sec(clock.prov)));
+
+    /* ---------- Test panel ---------- */
+    function segBtn(label, active, fn) {
+      return h("button", { type: "button", "aria-pressed": active ? "true" : "false", onClick: fn, key: label }, label);
+    }
+
+    var panel = h("aside", { className: "panel", "aria-label": "Test controls" },
+      h("h2", null, "Test controls (prototype only)"),
+      h("div", null, h("h3", null, "Wallet result"),
+        h("div", { className: "seg" },
+          segBtn("Success", sim === "success", function () { setSim("success"); }),
+          segBtn("Fail", sim === "fail", function () { setSim("fail"); }))),
+      h("div", null, h("h3", null, "Activation time before this step (restarts the flow)"),
+        h("div", { className: "seg" },
+          segBtn("2:30 normal", offset === 150, function () { restart(150); }),
+          segBtn("4:10 compact offer", offset === 250, function () { restart(250); }),
+          segBtn("4:50 breach", offset === 290, function () { restart(290); }))),
+      h("div", { className: "seg" },
+        h("button", { className: "tbtn", type: "button", onClick: function () { restart(); } }, "Restart"),
+        h("button", { className: "tbtn", type: "button", onClick: backgroundApp, disabled: !(screen === 2 && sheet === "adding") }, "Background app mid-add"),
+        h("button", { className: "tbtn", type: "button", onClick: simulatePurchase, disabled: !(result === "added" && !purchased) }, "Simulate first wallet purchase")),
+      h("div", { className: "guard " + (guard === 0 ? "ok" : "bad"), role: "status" },
+        "Claim guard: " + guard + " banned strings on screen"),
+      h("div", null, h("h3", null, "Event log"),
+        h("ul", { className: "log" },
+          log.length === 0
+            ? h("li", { className: "empty" }, "No events yet")
+            : log.map(function (e, i) { return h("li", { key: i }, h("span", null, e.name), h("span", null, e.t)); }))),
+      h("p", { className: "hint" }, "Try: Fail \u2192 Add to wallet \u2192 Confirm, three times. After the third failure only \u201CSkip for now\u201D remains.")
+    );
+
+    return h("div", { className: "layout" },
+      h("div", { id: "phone", role: "region", "aria-label": "Phone prototype" }, overlay, phoneBody),
+      panel);
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+})();
+</script>
+</body>
+</html>
